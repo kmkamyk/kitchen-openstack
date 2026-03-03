@@ -173,14 +173,25 @@ module Kitchen
         volume.get_bdm(config, openstack_server)
       end
 
-      def create_server
+    def create_server
         server_def = init_configuration
         raise(ActionFailed, "Cannot specify both network_ref and network_id") if config[:network_id] && config[:network_ref]
 
         if config[:network_id]
           networks = [].push(config[:network_id])
-          server_def[:nics] = networks.flatten.map do |net_id|
-            { "net_id" => net_id }
+          server_def[:nics] = networks.flatten.map do |net_item|
+            if net_item.is_a?(Hash)
+              # Pobieramy ID i IP niezależnie od tego, czy klucz to string czy symbol
+              net_id_val = net_item["id"] || net_item[:id] || net_item["net_id"] || net_item[:net_id]
+              fixed_ip_val = net_item["fixed_ip"] || net_item[:fixed_ip]
+              
+              nic = { "net_id" => net_id_val }
+              nic["v4_fixed_ip"] = fixed_ip_val if fixed_ip_val
+              nic
+            else
+              # Zachowujemy standardowe działanie, gdy podasz po prostu string z ID sieci
+              { "net_id" => net_item }
+            end
           end
         elsif config[:network_ref]
           networks = [].push(config[:network_ref])
